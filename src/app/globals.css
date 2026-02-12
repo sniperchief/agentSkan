@@ -1,0 +1,156 @@
+@import "tailwindcss";
+
+:root {
+  --background: #09090b;
+  --foreground: #fafafa;
+  --accent: #22d3ee;
+  --accent-muted: rgba(34, 211, 238, 0.15);
+  --text-muted: #71717a;
+  --border: rgba(255, 255, 255, 0.08);
+  --risk-low: #22d3ee;
+  --risk-medium: #fbbf24;
+  --risk-high: #f87171;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans), Arial, Helvetica, sans-serif;
+}
+
+/* Grid overlay */
+.grid-overlay {
+  position: fixed;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(34, 211, 238, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(34, 211, 238, 0.03) 1px, transparent 1px);
+  background-size: 60px 60px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Risk level badges */
+.risk-low {
+  background-color: rgba(34, 211, 238, 0.15);
+  color: var(--risk-low);
+  border: 1px solid rgba(34, 211, 238, 0.4);
+}
+
+.risk-medium {
+  background-color: rgba(251, 191, 36, 0.15);
+  color: var(--risk-medium);
+  border: 1px solid rgba(251, 191, 36, 0.4);
+}
+
+.risk-high {
+  background-color: rgba(248, 113, 113, 0.15);
+  color: var(--risk-high);
+  border: 1px solid rgba(248, 113, 113, 0.4);
+}
+
+/* Score ring */
+.score-ring {
+  width: 150px;
+  height: 150px;
+}
+
+/* Severity badges */
+.severity-low {
+  background-color: rgba(34, 211, 238, 0.15);
+  color: #22d3ee;
+}
+
+.severity-medium {
+  background-color: rgba(251, 191, 36, 0.15);
+  color: #fbbf24;
+}
+
+.severity-high {
+  background-color: rgba(248, 113, 113, 0.15);
+  color: #f87171;
+}
+
+/* Spinner animation */
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-spin {
+  animation: spin 1s linear infinite;
+}
+
+/* Fade in animation for results */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.3s ease-out;
+}
+
+/* Card styling */
+.card {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--border);
+  border-radius: 0.75rem;
+}
+
+/* Primary button */
+.btn-primary {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  background-color: var(--accent);
+  color: #09090b;
+  font-weight: 600;
+  overflow: hidden;
+  transition: all 0.3s ease;
+}
+
+.btn-primary:hover {
+  box-shadow: 0 0 30px rgba(34, 211, 238, 0.4);
+  transform: scale(1.02);
+}
+
+.btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+/* Glow effect for accent elements */
+.glow-accent {
+  box-shadow: 0 0 20px rgba(34, 211, 238, 0.3);
+}
+
+.glow-accent-lg {
+  box-shadow: 0 0 40px rgba(34, 211, 238, 0.4);
+}
+
+/* Link hover */
+.link-hover {
+  transition: color 0.2s ease;
+}
+
+.link-hover:hover {
+  color: var(--accent);
+}
