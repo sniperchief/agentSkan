@@ -12,14 +12,14 @@ export default function Home() {
         <div className="max-w-4xl mx-auto">
           {/* Main Headline */}
           <h1 className="text-3xl sm:text-5xl md:text-7xl font-semibold tracking-tight leading-tight mb-4 sm:mb-6">
-            <span className="text-white">Scan AI repos</span>
+            <span className="text-white">Scan AI agent repos</span>
             <br />
             <span className="text-[#22d3ee]">before they scan you</span>
           </h1>
 
           {/* Subtitle */}
           <p className="text-base sm:text-lg text-zinc-400 max-w-xl mb-8 sm:mb-10">
-            GitHub-based risk signals for AI agent projects.
+            GitHub-based risk signals for AI agents.
             Built for Base degens, traders, and onchain builders.
           </p>
 
