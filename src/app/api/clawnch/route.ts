@@ -129,10 +129,9 @@ async function fetchAndFilterTokens(): Promise<TokenWithMarketData[]> {
   const tokensWithMarketData: TokenWithMarketData[] = [];
   const seenAddresses = new Set<string>();
 
-  // Optimized settings for faster initial load
+  // Optimized settings - parallel calls for speed, full scan for completeness
   const BATCH_SIZE = 500;
-  const MAX_OFFSET = 3000; // Reduced from 10k to 3k
-  const TARGET_TOKENS = 50; // Return early once we have 50 tokens
+  const MAX_OFFSET = 5000; // Check up to 5k tokens
 
   let offset = 0;
 
@@ -188,11 +187,6 @@ async function fetchAndFilterTokens(): Promise<TokenWithMarketData[]> {
             liquidity: market.liquidity,
           });
         }
-      }
-
-      // Return early if we have enough tokens
-      if (tokensWithMarketData.length >= TARGET_TOKENS) {
-        break;
       }
 
       offset += BATCH_SIZE;
