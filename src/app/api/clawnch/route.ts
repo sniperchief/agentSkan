@@ -52,7 +52,7 @@ let cachedTokens: TokenWithMarketData[] = [];
 let cacheTimestamp = 0;
 const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 
-async function fetchDexScreenerData(addresses: string[]): Promise<Map<string, {
+async function fetchDexScreenerDataParallel(addresses: string[]): Promise<Map<string, {
   marketCapUSD: number;
   priceUSD: number;
   volume24hUSD: number;
@@ -71,47 +71,51 @@ async function fetchDexScreenerData(addresses: string[]): Promise<Map<string, {
   }
 
   try {
-    // Process batches with slight delay to avoid rate limiting
-    for (const batch of batches) {
-      const addressList = batch.join(",");
-      try {
-        const response = await fetch(
-          `https://api.dexscreener.com/latest/dex/tokens/${addressList}`,
-          {
-            headers: {
-              "Content-Type": "application/json",
-            },
-          }
-        );
+    // Fetch all batches in PARALLEL for speed
+    const results = await Promise.all(
+      batches.map(async (batch) => {
+        const addressList = batch.join(",");
+        try {
+          const response = await fetch(
+            `https://api.dexscreener.com/latest/dex/tokens/${addressList}`,
+            {
+              headers: {
+                "Content-Type": "application/json",
+              },
+            }
+          );
 
-        if (!response.ok) continue;
-
-        const result = await response.json() as DexScreenerResponse;
-
-        if (!result?.pairs) continue;
-
-        for (const pair of result.pairs) {
-          // Only process Base chain pairs
-          if (pair.chainId !== "base") continue;
-
-          const address = pair.baseToken.address.toLowerCase();
-          const existing = marketData.get(address);
-
-          // Use the pair with highest liquidity for this token
-          const liquidity = pair.liquidity?.usd || 0;
-          const marketCap = pair.marketCap || pair.fdv || 0;
-
-          if (marketCap > 0 && (!existing || liquidity > existing.liquidity)) {
-            marketData.set(address, {
-              marketCapUSD: marketCap,
-              priceUSD: parseFloat(pair.priceUsd || "0"),
-              volume24hUSD: pair.volume?.h24 || 0,
-              liquidity: liquidity,
-            });
-          }
+          if (!response.ok) return null;
+          return response.json() as Promise<DexScreenerResponse>;
+        } catch {
+          return null;
         }
-      } catch (e) {
-        console.error("Error fetching batch from DexScreener:", e);
+      })
+    );
+
+    // Process all results
+    for (const result of results) {
+      if (!result?.pairs) continue;
+
+      for (const pair of result.pairs) {
+        // Only process Base chain pairs
+        if (pair.chainId !== "base") continue;
+
+        const address = pair.baseToken.address.toLowerCase();
+        const existing = marketData.get(address);
+
+        // Use the pair with highest liquidity for this token
+        const liquidity = pair.liquidity?.usd || 0;
+        const marketCap = pair.marketCap || pair.fdv || 0;
+
+        if (marketCap > 0 && (!existing || liquidity > existing.liquidity)) {
+          marketData.set(address, {
+            marketCapUSD: marketCap,
+            priceUSD: parseFloat(pair.priceUsd || "0"),
+            volume24hUSD: pair.volume?.h24 || 0,
+            liquidity: liquidity,
+          });
+        }
       }
     }
   } catch (error) {
@@ -125,15 +129,14 @@ async function fetchAndFilterTokens(): Promise<TokenWithMarketData[]> {
   const tokensWithMarketData: TokenWithMarketData[] = [];
   const seenAddresses = new Set<string>();
 
-  // Fetch tokens in batches until we have enough with market data
-  // or we've checked a reasonable amount
+  // Optimized settings for faster initial load
   const BATCH_SIZE = 500;
-  const MAX_OFFSET = 10000; // Check up to 10k tokens
-  const TARGET_TOKENS = 200; // Aim for at least 200 tokens with market data
+  const MAX_OFFSET = 3000; // Reduced from 10k to 3k
+  const TARGET_TOKENS = 50; // Return early once we have 50 tokens
 
   let offset = 0;
 
-  while (offset < MAX_OFFSET && tokensWithMarketData.length < TARGET_TOKENS) {
+  while (offset < MAX_OFFSET) {
     try {
       // Fetch batch from Clawnch
       const response = await fetch(
@@ -163,8 +166,8 @@ async function fetchAndFilterTokens(): Promise<TokenWithMarketData[]> {
       // Get addresses for DexScreener lookup
       const addresses = newTokens.map(t => t.address);
 
-      // Fetch market data
-      const marketData = await fetchDexScreenerData(addresses);
+      // Fetch market data in PARALLEL
+      const marketData = await fetchDexScreenerDataParallel(addresses);
 
       // Add tokens that have market data
       for (const token of newTokens) {
@@ -187,10 +190,12 @@ async function fetchAndFilterTokens(): Promise<TokenWithMarketData[]> {
         }
       }
 
-      offset += BATCH_SIZE;
+      // Return early if we have enough tokens
+      if (tokensWithMarketData.length >= TARGET_TOKENS) {
+        break;
+      }
 
-      // Small delay to be nice to APIs
-      await new Promise(resolve => setTimeout(resolve, 100));
+      offset += BATCH_SIZE;
 
     } catch (error) {
       console.error("Error fetching tokens:", error);
