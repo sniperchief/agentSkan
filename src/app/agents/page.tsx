@@ -8,7 +8,8 @@ type TabType = "moltlaunch" | "clawnch";
 function formatMarketCap(value: number): string {
   if (value >= 1_000_000) return `$${(value / 1_000_000).toFixed(2)}M`;
   if (value >= 1_000) return `$${(value / 1_000).toFixed(1)}K`;
-  return `$${value.toFixed(2)}`;
+  if (value > 0) return `$${value.toFixed(2)}`;
+  return "N/A";
 }
 
 function formatPriceChange(value: number): string {
@@ -139,7 +140,7 @@ function ClawnchTokenCard({ token, onScan }: { token: ClawnchToken; onScan: (tok
             <span className="text-xs text-zinc-500 font-mono">${token.symbol}</span>
           </div>
 
-          {/* Source Badge and Launch Date */}
+          {/* Source Badge and Market Cap */}
           <div className="flex items-center gap-2 mb-2 sm:mb-3">
             <span className={`px-2 py-0.5 text-xs rounded font-medium ${
               token.source === "4claw"
@@ -149,8 +150,28 @@ function ClawnchTokenCard({ token, onScan }: { token: ClawnchToken; onScan: (tok
               {token.source}
             </span>
             <span className="text-xs text-zinc-500">
-              Launched {formatDate(token.launchedAt)}
+              MCap: <span className="text-white font-medium">{formatMarketCap(token.marketCapUSD || 0)}</span>
             </span>
+          </div>
+
+          {/* Stats Row */}
+          <div className="flex items-center gap-3 sm:gap-4 text-xs mb-2">
+            {token.volume24hUSD !== undefined && token.volume24hUSD > 0 && (
+              <div>
+                <span className="text-zinc-500">24h Vol</span>
+                <span className="ml-1 font-medium">{formatMarketCap(token.volume24hUSD)}</span>
+              </div>
+            )}
+            {token.liquidity !== undefined && token.liquidity > 0 && (
+              <div>
+                <span className="text-zinc-500">Liq</span>
+                <span className="ml-1 font-medium">{formatMarketCap(token.liquidity)}</span>
+              </div>
+            )}
+            <div className="hidden sm:block">
+              <span className="text-zinc-500">Launched</span>
+              <span className="ml-1">{formatDate(token.launchedAt)}</span>
+            </div>
           </div>
 
           {/* Links */}
@@ -208,7 +229,7 @@ function ScanModal({
   const [githubUrl, setGithubUrl] = useState("");
   const [error, setError] = useState<string | null>(null);
 
-  const isAgent = "marketCapUSD" in item;
+  const isAgent = "holders" in item;
   const name = item.name;
   const symbol = item.symbol;
   const image = isAgent ? (item as MoltlaunchAgent).image : null;
@@ -291,15 +312,22 @@ export default function AgentsPage() {
   const [agents, setAgents] = useState<MoltlaunchAgent[]>([]);
   const [tokens, setTokens] = useState<ClawnchToken[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedItem, setSelectedItem] = useState<MoltlaunchAgent | ClawnchToken | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [tokensTotal, setTokensTotal] = useState(0);
+  const [tokensOffset, setTokensOffset] = useState(0);
+  const TOKENS_PER_PAGE = 50;
 
   useEffect(() => {
     if (activeTab === "moltlaunch") {
       fetchAgents();
     } else {
-      fetchClawnchTokens();
+      // Reset and fetch fresh when switching to Clawnch tab
+      setTokens([]);
+      setTokensOffset(0);
+      fetchClawnchTokens(0, true);
     }
   }, [activeTab]);
 
@@ -321,14 +349,28 @@ export default function AgentsPage() {
     }
   };
 
-  const fetchClawnchTokens = async () => {
-    setLoading(true);
+  const fetchClawnchTokens = async (offset: number, isInitial: boolean = false) => {
+    if (isInitial) {
+      setLoading(true);
+    } else {
+      setLoadingMore(true);
+    }
     setError(null);
+
     try {
-      const response = await fetch("/api/clawnch?limit=50&offset=0");
+      const response = await fetch(`/api/clawnch?limit=${TOKENS_PER_PAGE}&offset=${offset}`);
       const data = await response.json();
       if (data.success) {
-        setTokens(data.data.tokens);
+        if (isInitial) {
+          setTokens(data.data.tokens);
+        } else {
+          // Append new tokens and re-sort by market cap
+          const allTokens = [...tokens, ...data.data.tokens];
+          allTokens.sort((a, b) => (b.marketCapUSD || 0) - (a.marketCapUSD || 0));
+          setTokens(allTokens);
+        }
+        setTokensTotal(data.data.total);
+        setTokensOffset(offset + data.data.tokens.length);
       } else {
         setError(data.error || "Failed to fetch tokens");
       }
@@ -336,7 +378,12 @@ export default function AgentsPage() {
       setError("Failed to connect to the server");
     } finally {
       setLoading(false);
+      setLoadingMore(false);
     }
+  };
+
+  const handleLoadMore = () => {
+    fetchClawnchTokens(tokensOffset, false);
   };
 
   const handleScanAgent = (agent: MoltlaunchAgent) => {
@@ -366,10 +413,10 @@ export default function AgentsPage() {
   // Sort agents by market cap descending
   const sortedAgents = [...filteredAgents].sort((a, b) => b.marketCapUSD - a.marketCapUSD);
 
-  // Sort tokens by launch date descending (newest first)
-  const sortedTokens = [...filteredTokens].sort((a, b) =>
-    new Date(b.launchedAt).getTime() - new Date(a.launchedAt).getTime()
-  );
+  // Tokens are already sorted by market cap from API, maintain that order
+  const sortedTokens = filteredTokens;
+
+  const hasMoreTokens = tokensOffset < tokensTotal;
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -476,16 +523,51 @@ export default function AgentsPage() {
           {!loading && !error && activeTab === "clawnch" && (
             <>
               <div className="text-sm text-zinc-500 mb-4">
-                {sortedTokens.length} token{sortedTokens.length !== 1 ? "s" : ""} found
+                Showing {sortedTokens.length} of {tokensTotal.toLocaleString()} tokens (sorted by market cap)
               </div>
               <div className="space-y-3">
                 {sortedTokens.map((token) => (
                   <ClawnchTokenCard key={token.address} token={token} onScan={handleScanToken} />
                 ))}
               </div>
-              {sortedTokens.length === 0 && (
+              {sortedTokens.length === 0 && !loadingMore && (
                 <div className="text-center py-12 text-zinc-500">
                   No tokens found matching your search
+                </div>
+              )}
+
+              {/* Load More Button */}
+              {hasMoreTokens && !searchQuery && (
+                <div className="mt-6 text-center">
+                  <button
+                    onClick={handleLoadMore}
+                    disabled={loadingMore}
+                    className="px-6 py-3 bg-white/5 text-white font-medium rounded-lg hover:bg-white/10 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {loadingMore ? (
+                      <span className="flex items-center gap-2">
+                        <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                          <circle
+                            className="opacity-25"
+                            cx="12"
+                            cy="12"
+                            r="10"
+                            stroke="currentColor"
+                            strokeWidth="4"
+                            fill="none"
+                          />
+                          <path
+                            className="opacity-75"
+                            fill="currentColor"
+                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                          />
+                        </svg>
+                        Loading...
+                      </span>
+                    ) : (
+                      `Load More (${(tokensTotal - tokensOffset).toLocaleString()} remaining)`
+                    )}
+                  </button>
                 </div>
               )}
             </>
@@ -504,7 +586,7 @@ export default function AgentsPage() {
                 <p className="text-zinc-500 text-sm">
                   {activeTab === "moltlaunch"
                     ? "Moltlaunch agents don't include GitHub links by default. Click \"Scan\" on any agent to link their GitHub repository and run a risk analysis."
-                    : "Clawnch tokens (from 4claw and moltx platforms) don't include GitHub links. Click \"Scan\" on any token to link their GitHub repository and run a risk analysis."
+                    : "Clawnch tokens (from 4claw and moltx platforms) are sorted by market cap. Click \"Scan\" on any token to link their GitHub repository and run a risk analysis."
                   }
                 </p>
               </div>
@@ -518,7 +600,7 @@ export default function AgentsPage() {
         <div className="max-w-4xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2">
           <span className="text-zinc-600 text-sm">Built for Base</span>
           <span className="text-zinc-700 text-xs">
-            Data from {activeTab === "moltlaunch" ? "Moltlaunch" : "Clawnch"}
+            Data from {activeTab === "moltlaunch" ? "Moltlaunch" : "Clawnch + DexScreener"}
           </span>
         </div>
       </footer>

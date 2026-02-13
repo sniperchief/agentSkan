@@ -93,4 +93,9 @@ export interface ClawnchToken {
   clankerUrl: string;
   explorerUrl: string;
   sourceUrl: string;
+  // Market data from DexScreener
+  marketCapUSD?: number;
+  priceUSD?: number;
+  volume24hUSD?: number;
+  liquidity?: number;
 }
