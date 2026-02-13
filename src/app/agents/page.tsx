@@ -523,7 +523,7 @@ export default function AgentsPage() {
           {!loading && !error && activeTab === "clawnch" && (
             <>
               <div className="text-sm text-zinc-500 mb-4">
-                Showing {sortedTokens.length} of {tokensTotal.toLocaleString()} tokens (sorted by market cap)
+                Showing {sortedTokens.length} of {tokensTotal.toLocaleString()} active tokens (sorted by market cap)
               </div>
               <div className="space-y-3">
                 {sortedTokens.map((token) => (
@@ -586,7 +586,7 @@ export default function AgentsPage() {
                 <p className="text-zinc-500 text-sm">
                   {activeTab === "moltlaunch"
                     ? "Moltlaunch agents don't include GitHub links by default. Click \"Scan\" on any agent to link their GitHub repository and run a risk analysis."
-                    : "Clawnch tokens (from 4claw and moltx platforms) are sorted by market cap. Click \"Scan\" on any token to link their GitHub repository and run a risk analysis."
+                    : "Only showing tokens with active trading (market cap data from DexScreener). Sorted by market cap, highest first. Click \"Scan\" to link a GitHub repository."
                   }
                 </p>
               </div>
