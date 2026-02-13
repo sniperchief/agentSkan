@@ -83,3 +83,14 @@ export interface MoltlaunchAgent {
   lastActiveAt: number;
   githubUrl?: string; // User-linked GitHub repo
 }
+
+export interface ClawnchToken {
+  symbol: string;
+  name: string;
+  address: string;
+  source: "4claw" | "moltx";
+  launchedAt: string;
+  clankerUrl: string;
+  explorerUrl: string;
+  sourceUrl: string;
+}
